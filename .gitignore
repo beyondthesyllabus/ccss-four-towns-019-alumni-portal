@@ -1,0 +1,8 @@
+node_modules/
+portal.db
+portal.db-shm
+portal.db-wal
+uploads/
+.env
+Thumbs.db
+.DS_Store
