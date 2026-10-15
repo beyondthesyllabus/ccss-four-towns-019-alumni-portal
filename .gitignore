@@ -6,3 +6,7 @@ uploads/
 .env
 Thumbs.db
 .DS_Store
+.vercel/
+
+.vercel
+.env*

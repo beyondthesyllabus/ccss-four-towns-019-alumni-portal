@@ -87,6 +87,23 @@ const chipFor = b => {
 };
 const Avatar = m => h('div', { className: 'avatar' }, m.photo ? h('img', { src: m.photo, alt: m.first_name }) : (m.first_name || '?')[0].toUpperCase() + (m.surname || '')[0].toUpperCase());
 
+/* shrink phone photos client side so uploads always stay small */
+function compress(file, max = 1400) {
+  return new Promise(resolve => {
+    if (!file || !file.type.startsWith('image/')) return resolve(file);
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(b => b ? resolve(new File([b], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' })) : resolve(file), 'image/jpeg', 0.85);
+    };
+    img.onerror = () => resolve(file);
+    img.src = URL.createObjectURL(file);
+  });
+}
+
 /* bank details card for the registration fee */
 function BankCard({ fee }) {
   const [copied, setCopied] = useState(false);
@@ -261,18 +278,20 @@ function Register() {
   });
   useEffect(() => { api('/config').then(setCfg).catch(() => {}); }, []);
   const set = k => e => setF({ ...f, [k]: e.target.value });
-  const onPhoto = e => {
+  const onPhoto = async e => {
     const file = e.target.files[0];
     if (!file) return;
-    setF({ ...f, photo: file });
-    setPrev(URL.createObjectURL(file));
+    const small = await compress(file);
+    setF({ ...f, photo: small });
+    setPrev(URL.createObjectURL(small));
   };
   const [receiptPrev, setReceiptPrev] = useState('');
-  const onReceipt = e => {
+  const onReceipt = async e => {
     const file = e.target.files[0];
     if (!file) return;
-    setF({ ...f, receipt: file });
-    setReceiptPrev(URL.createObjectURL(file));
+    const small = await compress(file, 1800);
+    setF({ ...f, receipt: small });
+    setReceiptPrev(URL.createObjectURL(small));
   };
   const submit = async e => {
     e.preventDefault(); setErr('');
@@ -417,7 +436,7 @@ function MemberDash() {
     setBusy(true);
     try {
       const fd = new FormData();
-      fd.append('receipt', file);
+      fd.append('receipt', await compress(file, 1800));
       await api('/me/receipt', { method: 'POST', body: fd });
       toast('Receipt uploaded. The admin will verify it shortly 🧾', 'good');
       load();
@@ -431,7 +450,7 @@ function MemberDash() {
     setBusy(true);
     try {
       const fd = new FormData();
-      fd.append('birthday_photo', file);
+      fd.append('birthday_photo', await compress(file));
       await api('/me/birthday-photo', { method: 'POST', body: fd });
       toast('Birthday picture uploaded! 🎂', 'good');
       load();
